@@ -1,3 +1,2 @@
 # DeltaKit
-
-A description of this package.
+Useful components for iOS app development.
