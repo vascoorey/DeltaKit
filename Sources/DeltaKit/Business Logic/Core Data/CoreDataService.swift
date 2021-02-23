@@ -27,6 +27,8 @@ protocol CoreDataServiceProtocol: ServiceProtocol {
     
     func save(_ block: @escaping (NSManagedObjectContext) -> ()) -> Promise<Bool>
     
+    func clearAllData() -> Promise<Bool>
+    
 }
 
 @objc private class ContextNotificationHandler: NSObject {
@@ -63,8 +65,8 @@ final class CoreDataService: CoreDataServiceProtocol {
     init(storeName: String) {
         self.storeName = storeName
         self.fileService = registeredService()
-        self.storeURL = self.fileService.applicationSupportDirectory.appendingPathExtension(storeName)
-        self.managedObjectModel = validate(NSManagedObjectModel.mergedModel(from: [Bundle.main]))
+        self.storeURL = self.fileService.applicationSupportDirectory.appendingPathComponent(storeName)
+        self.managedObjectModel = validate(NSManagedObjectModel.mergedModel(from: Bundle.allBundles))
         self.mainCoordinator = NSPersistentStoreCoordinator(managedObjectModel: self.managedObjectModel)
         
         do {
@@ -107,6 +109,12 @@ final class CoreDataService: CoreDataServiceProtocol {
                         failure(error)
                 }
             }
+        }
+    }
+    
+    func clearAllData() -> Promise<Bool> {
+        return save { [unowned self] (context) in
+            let entities = self.managedObjectModel.entities
         }
     }
     
