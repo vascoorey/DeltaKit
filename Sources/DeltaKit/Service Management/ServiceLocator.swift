@@ -53,7 +53,7 @@ public final class ServiceLocator: ServiceLocatorProtocol {
     ///
     
     
-    static let shared: ServiceLocator = ServiceLocator()
+    public static let shared: ServiceLocator = ServiceLocator()
     
     
     internal static func validated<T>() -> T {
