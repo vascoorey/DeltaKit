@@ -15,13 +15,11 @@ public enum LocalizationStoreOptions {
     case settings(String)
     /// Store the localization directly in the application support directory
     case applicationSupport(String)
-    /// Client provides a custom store via a closure. Certain things might not work as desired (change notifications won't be fired)
-    case custom((String) -> String)
     
 }
 
 
-public protocol LocalizationServiceProtocol {
+public protocol LocalizationServiceProtocol: ServiceProtocol {
     
     var storeOptions: LocalizationStoreOptions { get }
     
@@ -38,16 +36,50 @@ public protocol LocalizationServiceProtocol {
 
 public final class LocalizationService: LocalizationServiceProtocol {
     
-    let fileService: FileServiceProtocol = registeredService()
+    private let fileService: FileServiceProtocol = registeredService()
+    
+    private let settingsService: SettingsServiceProtocol = registeredService()
     
     private var currentLocalization: [String: String] = [:]
     
-    private var observers = [String: [WeakContainer]]()
+    private var observers = [String: (String?, [WeakContainer])]()
     
     public let storeOptions: LocalizationStoreOptions
     
     public init(options: LocalizationStoreOptions) {
         storeOptions = options
+        
+        switch options {
+        case .applicationSupport(let path):
+            // Try to load the saved localization from the provided path
+            let localizationPath = fileService.applicationSupportDirectory.appendingPathComponent(path)
+            
+            do {
+                if FileManager.default.fileExists(atPath: localizationPath.absoluteString),
+                   let localizationData = FileManager.default.contents(atPath: localizationPath.absoluteString),
+                   let localization = try JSONSerialization.jsonObject(with: localizationData, options: .allowFragments) as? [String: String] {
+                    currentLocalization = localization
+                }
+            }
+            catch {
+                // There was an error reading the localization file, if one exists we should delete it.
+                log(.error, "Error reading localization file: %@", error.localizedDescription)
+                if FileManager.default.fileExists(atPath: localizationPath.absoluteString) {
+                    log(.error, "File will be deleted")
+                    do {
+                        try FileManager.default.removeItem(at: localizationPath)
+                    } catch {
+                        fatalError("Expected to be able to delete an existing file. App will be in an inconsistent state with a bad localization. Bailing out (for now): \(error.localizedDescription)")
+                    }
+                }
+                
+            }
+        case .settings(let key):
+            // Try loading from the settings service
+            if let localization: [String: String] = settingsService.value(forKey: key) {
+                currentLocalization = localization
+            }
+        }
     }
     
     
